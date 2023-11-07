@@ -48,7 +48,7 @@ I only interested in flood between 2020 and 2021, so I will do some data cleanin
 #FEMA
 DisasterDeclarations <- DisasterDeclarations %>% filter(incidentType == "Flood" & year(incidentBeginDate) %in% c(2020,2021))
 
-# 仅保留以"Estimate!!"开头的列
+
 DP5_2020 <- DP5_2020 %>% select(ends_with("E"))
 DP5_2021 <- DP5_2021 %>% select(ends_with("E"))
 DT5_2020 <- DT5_2020 %>% select(ends_with("E"))
@@ -144,7 +144,7 @@ ggplot(filterfema) +
 
 ```
 
-From this graph, it shows that KY needs the most funding to rebuild infrastructure, this is because KY is the seventh poorest state among all state in US, the poverty rate of KY is 14.9%. Although KY ranks the third poorest state in this plot, it needs most funding since it has a higher flooding duration too.
+From this graph, it shows that KY needs the most funding to rebuild infrastructure, this is because KY is the seventh poorest state among all state in US, the poverty rate of KY is 14.9%. Although KY ranks the third poorest state in this plot, it needs most funding since it has a higher flooding duration too
 
 More data cleaning for the next step of analysis
 
@@ -184,7 +184,9 @@ new_filter <- cbind(state=filterfema$state,population=census_population$populati
 new_filter <- as.data.frame(new_filter)
 ```
 
-Now, I want to look at the relationship between the population of each state and the funding they need for the emergency work that needs to be completed within six months. I assume that if a state has a smaller population it will need more funding. This assumption is because the lower population may face higher labor costs due to labor shortages.
+Now, I want to look at the relationship between the population of each state and the funding they need for the emergency work that needs to be completed within six months. I assume that if a state has a smaller population it will need more funding. This assumption is because the lower population may face higher labor costs due to labor shortages
+
+First, I plot a graph that shows the funding that needs to do the emergency work which includes both Debris removal and Emergency protective measures in each state
 
 ```{r warning=FALSE, message=FALSE}
 ggplot(filterfema) +
