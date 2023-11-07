@@ -184,7 +184,7 @@ new_filter <- cbind(state=filterfema$state,population=census_population$populati
 new_filter <- as.data.frame(new_filter)
 ```
 
-Now, I want to look at the relationship between the population of each state and the funding they need for the emergency work that needs to be completed within six months. I assume that if a state has a smaller population it will need more funding. This assumption is because the lower population might need to hire more workers to do the emergency work and it will cost higher labor costs.
+Now, I want to look at the relationship between the population of each state and the funding they need for the emergency work that needs to be completed within six months. I assume that if a state has a smaller population it will need more funding. This assumption is because the lower population may face higher labor costs due to labor shortages.
 
 ```{r warning=FALSE, message=FALSE}
 ggplot(filterfema) +
