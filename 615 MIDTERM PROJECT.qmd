@@ -1,0 +1,159 @@
+---
+title: "MA615 MIDTERM PROJECT"
+author: "TSZ WAI NG"
+format: html
+editor: visual
+---
+
+## Assignment
+
+## Data Cleaning
+
+```{r}
+#| label: Load libraries
+#| warning: false
+#| message: false
+#| echo: false
+
+library(knitr)  
+library(kableExtra)
+library(tidyverse)
+library(stringr)
+library(readr)
+library(ggplot2)
+library(forecast)
+library(dplyr)
+```
+
+<!-- Read the file -->
+
+```{r warnming=FALSE, message=FALSE}
+#FEMA
+DisasterDeclarations <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/FEMA DATASETS/DisasterDeclarationsSummaries.csv")
+FEMAWeb <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/FEMA DATASETS/FemaWebDisasterSummaries.csv")
+
+#StormEventsDetail
+StormDetails2020 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_details-ftp_v1.0_d2020_c20230927.csv")
+StormDetails2021 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_details-ftp_v1.0_d2021_c20231017.csv")
+
+#StormEventsLocation
+StormLocation2020 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_locations-ftp_v1.0_d2020_c20230927.csv")
+StormLocation2021 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_locations-ftp_v1.0_d2021_c20231017.csv")
+
+#StormEventsFatalities
+StormFatalities2020 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_fatalities-ftp_v1.0_d2020_c20230927.csv")
+StormFatalities2021 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_fatalities-ftp_v1.0_d2021_c20231017.csv")
+```
+
+I only interested in flood between 2020 and 2021, so I will do some data cleaning to keep the information that are related
+
+```{r warning=FALSE, message=FALSE}
+#StormEventsDetail
+StormDetails2020 <- StormDetails2020 %>% filter(EVENT_TYPE == "Flash Flood")
+StormDetails2021 <- StormDetails2021 |> filter(EVENT_TYPE == "Flash Flood")
+
+#FEMA
+DisasterDeclarations <- DisasterDeclarations %>% filter(incidentType == "Flood" & year(incidentBeginDate) %in% c(2020,2021))
+```
+
+Drop all the columns that only contains NA value
+
+```{r warning=FALSE, message=FALSE}
+#| label: drop one-item columns
+#| echo: false
+
+## define function
+drop_null_col <- function(df) {
+  col_name <- NULL
+  for (i in 1:ncol(df)) {
+    if (all(is.na(df[, i]))) {
+      col_name <- c(col_name, colnames(df)[i])
+    }
+  }
+if(is.null(col_name)){return("No Columns to drop")}else{
+   drp = data.frame(col_name)
+   return(drp)
+   }
+}
+
+#Ddrop columns that only have NA for StromEventsDetail
+SD2020 <- drop_null_col(StormDetails2020)
+SD2020 <- SD2020$col_name
+StormDetails2020 <- StormDetails2020 |> select(!all_of(SD2020))
+
+SD2021 <- drop_null_col(StormDetails2021)
+SD2021 <- SD2021$col_name
+StormDetails2021 <- StormDetails2021 |> select(!all_of(SD2021))
+
+#Ddrop columns that only have NA for data from FEMA
+DD <- drop_null_col(DisasterDeclarations)
+DD <- DD$col_name
+DisasterDeclarations <- DisasterDeclarations |> select(!all_of(DD))
+```
+
+## Initial questions
+
+1.  I am interested in how long the flooding lasts in every state.
+
+```{r warning=FALSE, message=FALSE}
+#FEMA data
+FEMABegainDate <- as.Date(DisasterDeclarations$incidentBeginDate)
+FEMAEndDate <- as.Date(DisasterDeclarations$incidentEndDate)
+Duration <- FEMAEndDate - FEMABegainDate
+DisasterDeclarations <- cbind(DisasterDeclarations,Duration)
+DisasterDeclarations$Duration <- as.numeric(gsub("[^0-9]", "",DisasterDeclarations$Duration))
+
+DD_count <- DisasterDeclarations %>%
+  group_by(incidentBeginDate,state) %>%
+  count(duration = Duration)
+```
+
+```{r}
+ggplot(DD_count) +
+  aes(x = state, y = duration, fill = state) +
+  geom_col() +
+  scale_fill_hue(direction = 1) +
+  theme_classic() + labs(title="Flooding Duration in each State")
+
+ggplot(DisasterDeclarations) +
+  aes(x = incidentBeginDate,y=Duration) +
+  geom_point() +
+  theme_classic()+ labs(title = "Flooding declaration date")
+```
+
+The first graph shows that WA state has the most flooding duration, PR and TN have the lowest day of flooding. The reasons that WA has a long time flooding duration is because it has lots of rivers. The second plot indicates that the flooding usually has a higher duration and more flooding during first half of the year
+
+```{r warning=FALSE, message=FALSE}
+filterfema <- FEMAWeb[FEMAWeb$disasterNumber %in% DisasterDeclarations$disasterNumber,]
+
+filterfema$state <- DisasterDeclarations$state[match(filterfema$disasterNumber, DisasterDeclarations$disasterNumber)]
+
+ggplot(filterfema) +
+  aes(
+    x = state,
+    y = totalObligatedAmountCatC2g,
+    colour = state
+  ) +
+  geom_point(shape = "circle", size = 3) +
+  scale_color_hue(direction = 1) +
+  labs(
+    title = "How much each state needs to rebuild public infrastructure"
+  ) +
+  theme_classic()
+
+ggplot(filterfema) +
+  aes(
+    x = state,
+    y = totalObligatedAmountCatAb,
+    colour = state
+  ) +
+  geom_point(shape = "circle", size = 3) +
+  scale_color_hue(direction = 1) +
+  labs(
+    title = "How much each state needs for EMERGENCY WORK"
+  ) +
+  theme_classic()
+
+```
+
+From this graph, it shows that KY needs the most
