@@ -9,7 +9,7 @@ editor: visual
 
 ## Data Cleaning
 
-```{r}
+```{r warning=FALSE, message=FALSE}
 #| label: Load libraries
 #| warning: false
 #| message: false
@@ -23,37 +23,38 @@ library(readr)
 library(ggplot2)
 library(forecast)
 library(dplyr)
+library(plotly)
 ```
 
 <!-- Read the file -->
 
 ```{r warnming=FALSE, message=FALSE}
 #FEMA
-DisasterDeclarations <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/FEMA DATASETS/DisasterDeclarationsSummaries.csv")
-FEMAWeb <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/FEMA DATASETS/FemaWebDisasterSummaries.csv")
+DisasterDeclarations <- read_csv("DisasterDeclarationsSummaries.csv")
+FEMAWeb <- read_csv("FemaWebDisasterSummaries.csv")
 
-#StormEventsDetail
-StormDetails2020 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_details-ftp_v1.0_d2020_c20230927.csv")
-StormDetails2021 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_details-ftp_v1.0_d2021_c20231017.csv")
-
-#StormEventsLocation
-StormLocation2020 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_locations-ftp_v1.0_d2020_c20230927.csv")
-StormLocation2021 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_locations-ftp_v1.0_d2021_c20231017.csv")
-
-#StormEventsFatalities
-StormFatalities2020 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_fatalities-ftp_v1.0_d2020_c20230927.csv")
-StormFatalities2021 <- read_csv("/Users/julie/Desktop/MA615/MID-TERM PROJECT/NOAA STORM EVENTS DATABASE/StormEvents_fatalities-ftp_v1.0_d2021_c20231017.csv")
+#2020
+ST5_2020 <- read_csv("ACSST5Y2020.S1701-Data.csv")
+ST5_2021 <- read_csv("ACSST5Y2021.S1701-Data.csv")
+DP5_2020 <- read_csv("ACSDP5Y2020.DP05-Data.csv")
+DP5_2021 <- read_csv("ACSDP5Y2021.DP05-Data.csv")
+DT5_2020 <- read_csv("ACSDT5Y2020.B25001-Data.csv")
+DT5_2021 <- read_csv("ACSDT5Y2021.B25001-Data.csv")
 ```
 
 I only interested in flood between 2020 and 2021, so I will do some data cleaning to keep the information that are related
 
 ```{r warning=FALSE, message=FALSE}
-#StormEventsDetail
-StormDetails2020 <- StormDetails2020 %>% filter(EVENT_TYPE == "Flash Flood")
-StormDetails2021 <- StormDetails2021 |> filter(EVENT_TYPE == "Flash Flood")
-
 #FEMA
 DisasterDeclarations <- DisasterDeclarations %>% filter(incidentType == "Flood" & year(incidentBeginDate) %in% c(2020,2021))
+
+# 仅保留以"Estimate!!"开头的列
+DP5_2020 <- DP5_2020 %>% select(ends_with("E"))
+DP5_2021 <- DP5_2021 %>% select(ends_with("E"))
+DT5_2020 <- DT5_2020 %>% select(ends_with("E"))
+DT5_2021 <- DT5_2021 %>% select(ends_with("E"))
+ST5_2020 <- ST5_2020 %>% select(ends_with("E"))
+ST5_2021 <- ST5_2021 %>% select(ends_with("E"))
 ```
 
 Drop all the columns that only contains NA value
@@ -76,15 +77,6 @@ if(is.null(col_name)){return("No Columns to drop")}else{
    }
 }
 
-#Ddrop columns that only have NA for StromEventsDetail
-SD2020 <- drop_null_col(StormDetails2020)
-SD2020 <- SD2020$col_name
-StormDetails2020 <- StormDetails2020 |> select(!all_of(SD2020))
-
-SD2021 <- drop_null_col(StormDetails2021)
-SD2021 <- SD2021$col_name
-StormDetails2021 <- StormDetails2021 |> select(!all_of(SD2021))
-
 #Ddrop columns that only have NA for data from FEMA
 DD <- drop_null_col(DisasterDeclarations)
 DD <- DD$col_name
@@ -93,7 +85,7 @@ DisasterDeclarations <- DisasterDeclarations |> select(!all_of(DD))
 
 ## Initial questions
 
-1.  I am interested in how long the flooding lasts in every state.
+I am interested in how long the flooding lasts in every state and the cost.
 
 ```{r warning=FALSE, message=FALSE}
 #FEMA data
@@ -108,20 +100,29 @@ DD_count <- DisasterDeclarations %>%
   count(duration = Duration)
 ```
 
-```{r}
+## Plotting
+
+```{r warning=FALSE, message=FALSE}
 ggplot(DD_count) +
   aes(x = state, y = duration, fill = state) +
   geom_col() +
   scale_fill_hue(direction = 1) +
   theme_classic() + labs(title="Flooding Duration in each State")
 
+```
+
+The first graph shows that WA state has the most flooding duration, PR and TN have the lowest day of flooding. The reasons that WA has a long time flooding duration is because it has lots of rivers.
+
+```{r warning=FALSE, message=FALSE}
 ggplot(DisasterDeclarations) +
   aes(x = incidentBeginDate,y=Duration) +
   geom_point() +
   theme_classic()+ labs(title = "Flooding declaration date")
 ```
 
-The first graph shows that WA state has the most flooding duration, PR and TN have the lowest day of flooding. The reasons that WA has a long time flooding duration is because it has lots of rivers. The second plot indicates that the flooding usually has a higher duration and more flooding during first half of the year
+This plot indicates that the flooding usually has a higher duration and more flooding during first half of the year
+
+Next, I want to see the funding that each states to rebuild the infrastructure
 
 ```{r warning=FALSE, message=FALSE}
 filterfema <- FEMAWeb[FEMAWeb$disasterNumber %in% DisasterDeclarations$disasterNumber,]
@@ -141,6 +142,51 @@ ggplot(filterfema) +
   ) +
   theme_classic()
 
+```
+
+From this graph, it shows that KY needs the most funding to rebuild infrastructure, this is because KY is the seventh poorest state among all state in US, the poverty rate of KY is 14.9%. Although KY ranks the third poorest state in this plot, it needs most funding since it has a higher flooding duration too.
+
+More data cleaning for the next step of analysis
+
+```{r warning=FALSE, message=FALSE}
+census_population1 <-  DP5_2020 %>%
+  mutate(state = sub(".*, ", "", NAME))
+
+census_population1 <- census_population1[-1, ]
+
+census_population <- census_population1 %>%
+  filter(!is.na(DP05_0001E) & !is.na(as.numeric(DP05_0001E))) %>%
+  group_by(state) %>%
+  summarize(population = sum(as.numeric(DP05_0001E)))
+
+census_population <- census_population %>%
+  mutate(state = gsub('North Dakota', 'ND', state))%>%
+  mutate(state = gsub('Wisconsin', 'WI', state))%>%
+  mutate(state = gsub('Oregon', 'OR', state))%>%
+  mutate(state = gsub('Hawaii', 'HI', state))%>%
+  mutate(state = gsub('Puerto Rico', 'PR', state))%>%
+  mutate(state = gsub('Kentucky', 'KY', state))%>%
+  mutate(state = gsub('Arizona', 'AZ', state))%>%
+  mutate(state = gsub('Vermont', 'VT', state))%>%
+  mutate(state = gsub('New Hampshire', 'NH', state))%>%
+  mutate(state = gsub('West Virginia', 'WV', state))%>%
+  mutate(state = gsub('Virginia', 'VA', state))%>%
+  mutate(state = gsub('Louisiana', 'LA', state))%>%
+  mutate(state = gsub('Tennessee', 'TN', state))%>%
+  mutate(state = gsub('Washington', 'WA', state))%>%
+  filter(nchar(state)<3)
+
+census_population <- arrange(census_population, state)
+
+filterfema <- arrange(filterfema,state)
+
+new_filter <- cbind(state=filterfema$state,population=census_population$population,totalObligatedAmountCatAb=filterfema$totalObligatedAmountCatAb)
+new_filter <- as.data.frame(new_filter)
+```
+
+Now, I want to look at the relationship between the population of each state and the funding they need for the emergency work that needs to be completed within six months. I assume that if a state has a smaller population it will need more funding. This assumption is because the lower population might need to hire more workers to do the emergency work and it will cost higher labor costs.
+
+```{r warning=FALSE, message=FALSE}
 ggplot(filterfema) +
   aes(
     x = state,
@@ -153,7 +199,18 @@ ggplot(filterfema) +
     title = "How much each state needs for EMERGENCY WORK"
   ) +
   theme_classic()
-
 ```
 
-From this graph, it shows that KY needs the most
+```{r warning=FALSE, message=FALSE}
+gg<- ggplot(data = new_filter, aes(x = population, y = totalObligatedAmountCatAb, label = state)) +
+  geom_point() +
+  labs(title = "Population vs. Funding need by State on EMERGENCY WORK",
+       x = "Population",
+       y = "Funding") + 
+  theme(axis.text.x = element_text(angle=45,hjust=1))
+
+interactive_plot <- ggplotly(gg)
+interactive_plot
+```
+
+The graph, it somehow shows that if a state has a lower population, then it will need more funding to complete the emergency work. However, there is an outlier which is the VA state
